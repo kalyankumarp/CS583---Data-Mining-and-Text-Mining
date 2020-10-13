@@ -1,6 +1,5 @@
 import numpy as np
 import os
-import pandas as pd
 import matplotlib.pyplot as mp
 
 def EM_assignment3(file_path, sampletxt):

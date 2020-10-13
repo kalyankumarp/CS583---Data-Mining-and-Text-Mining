@@ -4,15 +4,16 @@ import os
 def freq_itemsets(file_path, sampletxt, mistxt):
     def get_mis(MIS):
         ms = {}
-        sdc =0
+        sdc =1
         mis_rest =0
         for i in MIS:
-            if i[0] == 'SDC':
+            if 'SDC' in i[0] or 'sdc' in i[0]:
                 sdc = float(i[1])
-            elif i[0] == 'MIS(rest)':
+            elif 'MIS(rest)' in i[0] or 'rest' in i[0]:
                 mis_rest = float(i[1])
             else: 
-                ms[str(int(i[0][4:len(i[0])-1]))] =  float(i[1])
+                dc = i[0].replace('MIS(', '').replace(')', '')
+                ms[dc] =  float(i[1])
         return ms, mis_rest, sdc
     
 
@@ -34,12 +35,14 @@ def freq_itemsets(file_path, sampletxt, mistxt):
         return MIS
     
 
-    def sort(a, MIS, mis_rest):
+    def sort(a, MIS):
         temp5 = {} 
         try: 
             for i in a:
                 temp5[i] = MIS[str(i)] 
             l = [i[0] for i in sorted(temp5.items(), key = lambda x: x[1])]
+            
+    # This is for 1-frequent itemsets
         except:
             for i in a:
                 temp5[i[0]] = MIS[i[0]] 
@@ -56,7 +59,15 @@ def freq_itemsets(file_path, sampletxt, mistxt):
             
         return order
     
+ 
+    def first_counting(M, data_sorted):
+        for i in M:
+            count[tuple([i])] = 0
+        for i in data_sorted:
+            for j in i:
+                count[tuple([j])] += 1
 
+                
     def init_pass(M,MIS):
         temp_L = []
         flag = True
@@ -73,31 +84,25 @@ def freq_itemsets(file_path, sampletxt, mistxt):
         return temp_L
     
 
-    def first_counting(M, data_sorted):
-        for i in M:
-            count[tuple([i])] = 0
-        for i in data_sorted:
-            for j in i:
-                count[tuple([j])] += 1
-
             
     def F1(count, MIS, L):
         temp_F = []
         for i in L:
             if count[tuple(i)]/no_trans >= MIS[i[0]]:
                 temp_F.append(i)
-                support[tuple(i)] = round(count[tuple(i)]/no_trans,3)
+                support[tuple(i)] = count[tuple(i)]/no_trans
         return temp_F
     
 
     def level2_candidate(L,sdc, support):
-        temp_c =[]
+        temp_c = []
         for i in range(len(L)):
-            j = i+1
-            while j < len(L):
-                if count[tuple(L[j])]/no_trans >= MIS[L[i][0]] and abs(count[tuple(L[j])]/no_trans - count[tuple(L[i])]/no_trans) <= sdc:
-                    temp_c.append(sort([L[i][0], L[j][0]], order, mis_rest))
-                j += 1
+            if count[tuple(L[i])]/no_trans >= MIS[L[i][0]]:
+                j = i+1
+                while j < len(L):
+                    if count[tuple(L[j])]/no_trans >= MIS[L[i][0]] and abs(count[tuple(L[j])]/no_trans - count[tuple(L[i])]/no_trans) <= sdc:
+                        temp_c.append(sort([L[i][0], L[j][0]], order))
+                    j += 1
         return temp_c
     
 
@@ -119,33 +124,36 @@ def freq_itemsets(file_path, sampletxt, mistxt):
                     temp_c += 1
             if temp_c/no_trans >= MIS[i[0]]:
                 temp_f.append(i)
-                support[tuple(i)] = round(temp_c/no_trans,3)
+                support[tuple(i)] = temp_c/no_trans
         return support, temp_f
     
 
     def MS_candidate(f, sdc):
         temp_c =[]
         length = len(f)
+#         print(f)
+#         print(z)
         count = support_count(f, data)
-        for i in range (0,length):
-            element1 = f[i][:-1]
-            for j in range (i+1,length):
-                element2 = f[j][:-1]
-                if element1 == element2 and abs(count[tuple([f[i][len(f[i])-1]])]/no_trans - count[tuple([f[j][len(f[j])-1]])]/no_trans) <= sdc:
-                    temp_comb = list(set(f[i] + f[j]))
-                    comb = sort(temp_comb, order, mis_rest)
-                    temp_c.append(comb)
+        for i in f:
+            for j in f:
+                if i != j:
+#                     print(i)
+#                     print(i[len(i)-1])
+                    if (i[len(i)-1] < j[len(j)-1]) and (i[:-1] == j[:-1]) and abs(count[tuple([i[len(i)-1]])]/no_trans - count[tuple([j[len(j)-1]])]/no_trans) <= sdc:
+                        temp_comb = list(set(i + j))
+                        comb = sort(temp_comb, order)
+                        temp_c.append(comb)
 
 ## I used the code from: https://github.com/sudhanshugupta09/MS-Apriori_Algorithm/blob/master/candidateGen.py
 ## to check for subsets
 
 ## Checking Subsets
-                    for k in range(1,len(comb)+1):
-                        s = comb[:k-1] + comb[k:]
-                        if comb[0] in s or MIS[comb[1]] == MIS[comb[0]]:
-                            if s not in f:
-                                temp_c.remove(comb)
-                                break
+                        for k in range(1,len(comb)+1):
+                            s = comb[:k-1] + comb[k:]
+                            if comb[0] in s or MIS[comb[1]] == MIS[comb[0]]:
+                                if s not in f:
+                                    temp_c.remove(comb)
+                                    break
         return temp_c
 
 
@@ -161,6 +169,7 @@ def freq_itemsets(file_path, sampletxt, mistxt):
     temp2 = np.loadtxt(fname = os.path.join(file_path, mistxt), delimiter= '\n', dtype= str)
     MIS_temp = [i.split(' = ') for i in temp2]
     MIS_temp2, mis_rest, sdc = get_mis(MIS_temp)
+#     print(sdc)
 
 # Getting unique items 
 
@@ -172,33 +181,33 @@ def freq_itemsets(file_path, sampletxt, mistxt):
 
 # Sorting the items in each transaction in the ascending order of MIS values
 
-    data_sorted = [sort(i, MIS, mis_rest) for i in data]
+    data_sorted = [sort(i, MIS) for i in data]
     
 # Sorting the items in the ascending order of MIS values
 
-    M = sort(items, MIS, mis_rest)
+    M = sort(items, MIS)
 
 # Saving the order of the items in different format rather than using MIS values
     order = order(M)
 
 # First Count
 
-    global count
+#     global count
     count ={}
     first_counting(M, data_sorted) 
 
 # Finding L
 
     temp_L =  init_pass(M,MIS)
-    L = sort(temp_L, order, mis_rest)
+    L = sort(temp_L, order)
 
 # Finding F1
 
-    global support
+#     global support
     support ={}
     F = []    
     temp_f = F1(count, MIS, L)
-    F.append(sort(temp_f, order, mis_rest))
+    F.append(sort(temp_f, order))
     
 # Level 2 Candidate generation and Finding F2
 
@@ -238,8 +247,7 @@ def freq_itemsets(file_path, sampletxt, mistxt):
             temp += ')'
             print(temp)
         print(')')
-        print('\n')
 
 
-file_path = r'C:\Users\kalya\OneDrive - University of Illinois at Chicago\!UIC\!Semesters\3rd Sem\CS 583 Data Mining and Text Mining\Assignements\Assignment 1'
-freq_itemsets(file_path, 'As1_Sample3.txt', 'As1_MIS3.txt')
+file_path = r'C:\Users\kalya\OneDrive - University of Illinois at Chicago\!UIC\!Semesters\3rd Sem\CS 583 Data Mining and Text Mining\Assignements\Assignment 1 MSA Algorithm'
+freq_itemsets(file_path, 'As1_Sample6.txt', 'As1_MIS6.txt')
